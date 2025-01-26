@@ -1,3 +1,16 @@
+const express = require('express');
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).send('Bot is running!');
+});
+
+// Start the HTTP server
+app.listen(PORT, () => {
+  console.log(`Health check server running on port ${PORT}`);
+});
 require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
@@ -15,6 +28,7 @@ if (!token || !ownerId || !formUnstaticURL) {
 }
 
 const bot = new TelegramBot(token, { polling: true });
+console.log('Bot started successfully!');
 const chatStates = {};
 
 console.log('Bot started successfully!');
