@@ -2,53 +2,53 @@ const express = require('express');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.status(200).send('Bot is running!');
-});
-
-// Start the HTTP server
-app.listen(PORT, () => {
-  console.log(`Health check server running on port ${PORT}`);
-});
 require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
 
+// Required ENV variables
 const token = process.env.BOT_TOKEN;
 const ownerId = process.env.OWNER_ID;
 const formUnstaticURL = process.env.FORM_UNSTATIC_URL;
+const domain = process.env.DOMAIN || `https://pulse2-bot.onrender.com`; // Set this in your .env
 
-// Check for missing environment variables
-if (!token || !ownerId || !formUnstaticURL) {
+if (!token || !ownerId || !formUnstaticURL || !domain) {
   console.error(
     'Missing required environment variables. Check your .env file.'
   );
   process.exit(1);
 }
 
-const bot = new TelegramBot(token, { polling: true });
-console.log('Bot started successfully!');
+const bot = new TelegramBot(token, { webHook: { port: PORT } });
+const webhookPath = `/bot${token}`;
+const webhookUrl = `${domain}${webhookPath}`;
+
+// Set webhook
+bot.setWebHook(webhookUrl);
+console.log(`Webhook set to: ${webhookUrl}`);
+
 const chatStates = {};
 
-console.log('Bot started successfully!');
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).send('Bot is running!');
+});
+
+// Webhook endpoint
+app.use(express.json());
+app.post(webhookPath, (req, res) => {
+  bot.processUpdate(req.body);
+  res.sendStatus(200);
+});
 
 const sendToFormUnstatic = async (name, message) => {
-  if (!name || !message) {
-    console.error('Missing name or message for FormUnstatic submission.');
-    return;
-  }
+  if (!name || !message) return;
 
   try {
     const response = await axios.post(
       formUnstaticURL,
-      new URLSearchParams({
-        name: name,
-        message: message,
-      }),
-      {
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      }
+      new URLSearchParams({ name, message }),
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
     );
     console.log('Data sent to FormUnstatic:', response.data);
   } catch (error) {
