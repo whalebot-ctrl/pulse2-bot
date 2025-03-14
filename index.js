@@ -19,43 +19,41 @@ if (!token || !ownerId || !formUnstaticURL || !domain) {
   process.exit(1);
 }
 
-const bot = new TelegramBot(token, { webHook: { port: PORT } });
+// Create bot WITHOUT polling/webhook port handling
+const bot = new TelegramBot(token);
 const webhookPath = `/bot${token}`;
 const webhookUrl = `${domain}${webhookPath}`;
 
-// Set webhook
-bot.setWebHook(webhookUrl);
-console.log(`Webhook set to: ${webhookUrl}`);
+// Set webhook explicitly
+bot
+  .setWebHook(webhookUrl)
+  .then(() => {
+    console.log(`✅ Webhook set to: ${webhookUrl}`);
+  })
+  .catch((err) => {
+    console.error('❌ Failed to set webhook:', err);
+  });
 
-const chatStates = {};
-
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.status(200).send('Bot is running!');
-});
-
-// Webhook endpoint
+// Express middleware
 app.use(express.json());
+
+// Health check
+app.get('/', (req, res) => res.send('✅ pulse2bot is live!'));
+
 app.post(webhookPath, (req, res) => {
   bot.processUpdate(req.body);
   res.sendStatus(200);
 });
 
-const sendToFormUnstatic = async (name, message) => {
-  if (!name || !message) return;
+const chatStates = {};
 
+const sendToFormUnstatic = async (name, message) => {
   try {
-    const response = await axios.post(
-      formUnstaticURL,
-      new URLSearchParams({ name, message }),
-      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
-    );
-    console.log('Data sent to FormUnstatic:', response.data);
+    await axios.post(formUnstaticURL, new URLSearchParams({ name, message }), {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    });
   } catch (error) {
-    console.error(
-      'Error sending data to FormUnstatic:',
-      error.response?.data || error.message
-    );
+    console.error('❌ Error sending to FormUnstatic:', error.message);
   }
 };
 
