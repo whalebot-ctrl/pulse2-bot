@@ -20,11 +20,12 @@ if (!token || !ownerId || !formUnstaticURL || !domain) {
 }
 
 // Create bot WITHOUT polling/webhook port handling
-const bot = new TelegramBot(token);
+const bot = new TelegramBot(token, { webHook: true });
+
 const webhookPath = `/bot${token}`;
 const webhookUrl = `${domain}${webhookPath}`;
 
-// Set webhook explicitly
+// Set webhook
 bot
   .setWebHook(webhookUrl)
   .then(() => {
