@@ -2,15 +2,14 @@ const express = require('express');
 const app = express();
 const PORT = process.env.PORT || 3008;
 
-// Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).send('Bot is running!');
 });
 
-// Start the HTTP server
 app.listen(PORT, () => {
   console.log(`Health check server running on port ${PORT}`);
 });
+
 require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
@@ -19,7 +18,6 @@ const token = process.env.BOT_TOKEN;
 const ownerId = process.env.OWNER_ID;
 const formUnstaticURL = process.env.FORM_UNSTATIC_URL;
 
-// Check for missing environment variables
 if (!token || !ownerId || !formUnstaticURL) {
   console.error(
     'Missing required environment variables. Check your .env file.'
@@ -27,12 +25,20 @@ if (!token || !ownerId || !formUnstaticURL) {
   process.exit(1);
 }
 
-const bot = new TelegramBot(token); // don't use polling here yet
+const chatStates = {};
 
+// Create the bot WITHOUT polling
+const bot = new TelegramBot(token, { polling: false });
+
+// Delete webhook, then start polling (inside an async IIFE)
 (async () => {
-  await bot.deleteWebhook();
-  await bot.startPolling();
-  console.log('Bot started successfully!');
+  try {
+    await bot.deleteWebhook();
+    await bot.startPolling();
+    console.log('Bot started successfully!');
+  } catch (err) {
+    console.error('Failed to start bot:', err);
+  }
 })();
 
 const sendToFormUnstatic = async (name, message) => {
