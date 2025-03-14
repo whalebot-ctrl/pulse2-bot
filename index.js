@@ -33,7 +33,6 @@ const bot = new TelegramBot(token, { polling: false });
 // Delete webhook, then start polling (inside an async IIFE)
 (async () => {
   try {
-    await bot.deleteWebhook();
     await bot.startPolling();
     console.log('Bot started successfully!');
   } catch (err) {
