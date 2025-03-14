@@ -27,11 +27,13 @@ if (!token || !ownerId || !formUnstaticURL) {
   process.exit(1);
 }
 
-const bot = new TelegramBot(token, { polling: true });
-console.log('Bot started successfully!');
-const chatStates = {};
+const bot = new TelegramBot(token); // don't use polling here yet
 
-console.log('Bot started successfully!');
+(async () => {
+  await bot.deleteWebhook();
+  await bot.startPolling();
+  console.log('Bot started successfully!');
+})();
 
 const sendToFormUnstatic = async (name, message) => {
   if (!name || !message) {
